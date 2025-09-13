@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 # -------------------------
 # Load your trained model
 # -------------------------
-model = joblib.load("notebooks/advanced_stock_movement_model.pkl")
+model = joblib.load("advanced_stock_movement_model.pkl")
 
 
 st.title("📈 Stock Movement Predictor")
