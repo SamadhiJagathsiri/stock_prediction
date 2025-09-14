@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import yfinance as yf
 import joblib
 from ta.momentum import RSIIndicator
@@ -44,7 +45,7 @@ if st.button("Predict"):
             data.to_csv(csv_path)
 
         # -------------------------
-        # Ensure Close is numeric and 1D
+        # Ensure Close is numeric
         # -------------------------
         data['Close'] = pd.to_numeric(data['Close'], errors='coerce')
         data = data.dropna(subset=['Close'])
@@ -61,30 +62,29 @@ if st.button("Predict"):
         data['Momentum'] = data['Close'] - data['Close'].shift(5)
         data['RSI'] = RSIIndicator(data['Close'], window=14).rsi()
 
-        # Drop any rows with NaN from rolling calculations
+        # Drop rows with NaN from rolling/RSI calculations
         data = data.dropna()
 
         # -------------------------
         # Prepare features for prediction
         # -------------------------
         features = ['Price_Change','MA5','MA10','EMA10','EMA20','Momentum','RSI']
+        X = data[features].copy()
 
-        # Ensure all features exist
-        for feat in features:
-            if feat not in data.columns:
-                st.error(f"Feature {feat} is missing in the dataset!")
-                st.stop()
+        # Clean feature columns
+        X.columns = [c.strip() for c in X.columns]
+        X = X.apply(pd.to_numeric, errors='coerce')
+        X = X.replace([np.inf, -np.inf], np.nan).dropna()
+        data = data.loc[X.index]  # align original data with cleaned features
 
-        # Ensure all features are numeric
-        data[features] = data[features].apply(pd.to_numeric, errors='coerce')
+        # Debug (optional)
+        # st.write(X.head())
+        # st.write(X.dtypes)
+        # st.write(X.shape)
 
-        # Drop rows with NaN in features
-        data = data.dropna(subset=features)
-
-        # Reorder columns exactly as model expects
-        X = data[features]
-
+        # -------------------------
         # Predict next-day movement
+        # -------------------------
         data['Predicted'] = model.predict(X)
 
         # -------------------------
