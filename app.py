@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import os
 
 # -------------------------
-# Load your trained model
+# Load trained model
 # -------------------------
 model = joblib.load("advanced_stock_movement_model.pkl")
 
@@ -41,11 +41,13 @@ if st.button("Predict"):
             # Flatten multi-index columns if needed
             if isinstance(data.columns, pd.MultiIndex):
                 data.columns = [col[0] for col in data.columns]
-            data.to_csv(csv_path)  # save CSV for future use
+            data.to_csv(csv_path)
 
-        # Ensure 'Close' is numeric and 1D
+        # -------------------------
+        # Ensure Close is numeric and 1D
+        # -------------------------
         data['Close'] = pd.to_numeric(data['Close'], errors='coerce')
-        data = data.dropna()
+        data = data.dropna(subset=['Close'])
 
         # -------------------------
         # Feature Engineering
@@ -58,11 +60,32 @@ if st.button("Predict"):
         data['EMA20'] = data['Close'].ewm(span=20, adjust=False).mean()
         data['Momentum'] = data['Close'] - data['Close'].shift(5)
         data['RSI'] = RSIIndicator(data['Close'], window=14).rsi()
+
+        # Drop any rows with NaN from rolling calculations
         data = data.dropna()
 
-        # Predict next-day movement
+        # -------------------------
+        # Prepare features for prediction
+        # -------------------------
         features = ['Price_Change','MA5','MA10','EMA10','EMA20','Momentum','RSI']
-        data['Predicted'] = model.predict(data[features])
+
+        # Ensure all features exist
+        for feat in features:
+            if feat not in data.columns:
+                st.error(f"Feature {feat} is missing in the dataset!")
+                st.stop()
+
+        # Ensure all features are numeric
+        data[features] = data[features].apply(pd.to_numeric, errors='coerce')
+
+        # Drop rows with NaN in features
+        data = data.dropna(subset=features)
+
+        # Reorder columns exactly as model expects
+        X = data[features]
+
+        # Predict next-day movement
+        data['Predicted'] = model.predict(X)
 
         # -------------------------
         # Show Charts
@@ -83,5 +106,6 @@ if st.button("Predict"):
         # -------------------------
         st.subheader("📄 Last 10 Predictions")
         st.dataframe(data[['Close','Predicted']].tail(10))
+
 
 
